@@ -1,7 +1,7 @@
 "use client";
 
-import Map, { Marker, Popup } from "react-map-gl/maplibre";
-import { useState } from "react";
+import Map, { Marker, Popup, type MapRef } from "react-map-gl/maplibre";
+import { useState, useEffect, useRef } from "react";
 import { incidents } from "@/lib/data";
 import type { Incident } from "@/lib/types";
 import { Badge } from "./ui/badge";
@@ -46,6 +46,50 @@ export function MapView() {
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(
     null
   );
+  const [userPosition, setUserPosition] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [hasFlownToLocation, setHasFlownToLocation] = useState(false);
+  const mapRef = useRef<MapRef>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      console.error("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setUserPosition({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.error("Error getting user location:", error.message);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (userPosition && mapRef.current && !hasFlownToLocation) {
+      mapRef.current.flyTo({
+        center: [userPosition.longitude, userPosition.latitude],
+        zoom: 14,
+      });
+      setHasFlownToLocation(true);
+    }
+  }, [userPosition, hasFlownToLocation]);
 
   if (!apiKey) {
     return (
@@ -60,12 +104,13 @@ export function MapView() {
     );
   }
 
-  const position = { latitude: 34.0522, longitude: -118.2437 };
+  const initialPosition = { latitude: 34.0522, longitude: -118.2437 };
 
   return (
     <Map
+      ref={mapRef}
       initialViewState={{
-        ...position,
+        ...initialPosition,
         zoom: 12,
       }}
       style={{ width: "100%", height: "100%" }}
@@ -90,6 +135,15 @@ export function MapView() {
           />
         </Marker>
       ))}
+
+      {userPosition && (
+        <Marker
+          longitude={userPosition.longitude}
+          latitude={userPosition.latitude}
+        >
+          <div className="h-4 w-4 bg-blue-500 rounded-full border-2 border-white shadow-md" />
+        </Marker>
+      )}
 
       {selectedIncident && (
         <Popup
