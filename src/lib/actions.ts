@@ -18,7 +18,7 @@ const formSchema = z.object({
   severityLevel: z.string(),
   helpNeeded: z.array(z.string()).min(1, 'Please select at least one option.'),
   numberOfPeopleAffected: z.coerce.number().min(0),
-  photoDataUri: z.string(),
+  photoDataUris: z.array(z.string()).optional(),
   mcc: z.coerce.number().optional(),
   mnc: z.coerce.number().optional(),
   lac: z.coerce.number().optional(),

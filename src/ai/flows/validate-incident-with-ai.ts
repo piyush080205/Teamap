@@ -13,10 +13,11 @@ import {z} from 'genkit';
 const ValidateIncidentWithAIInputSchema = z.object({
   incidentType: z.string().describe('The type of incident being reported (e.g., accident, fire, crime).'),
   locationDescription: z.string().describe('A description of the incident location.'),
-  photoDataUri: z
-    .string()
+  photoDataUris: z
+    .array(z.string())
+    .optional()
     .describe(
-      "A photo or video of the incident, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+      "Photos or videos of the incident, as an array of data URIs. Each URI must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
   description: z.string().describe('A detailed description of the incident.'),
   severityLevel: z.string().describe('The severity level of the incident (e.g., critical, warning, info).'),
@@ -46,7 +47,12 @@ const prompt = ai.definePrompt({
 
   Incident Type: {{{incidentType}}}
   Location Description: {{{locationDescription}}}
-  Photo/Video Evidence: {{media url=photoDataUri}}
+  {{#if photoDataUris}}
+  Photo/Video Evidence:
+  {{#each photoDataUris}}
+  {{media url=this}}
+  {{/each}}
+  {{/if}}
   Description: {{{description}}}
   Severity Level: {{{severityLevel}}}
   Help Needed: {{#each helpNeeded}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}

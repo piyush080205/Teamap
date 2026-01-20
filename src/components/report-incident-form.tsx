@@ -4,7 +4,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useState, useTransition, useEffect, useRef } from 'react';
-import { ChevronsUpDown, Loader2, MapPin, Camera } from 'lucide-react';
+import {
+  ChevronsUpDown,
+  Loader2,
+  MapPin,
+  Camera,
+  SwitchCamera,
+  X,
+} from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 import { Button } from '@/components/ui/button';
@@ -85,67 +92,82 @@ export function ReportIncidentForm() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(
     null
   );
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [capturedImages, setCapturedImages] = useState<string[]>([]);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [currentDeviceIndex, setCurrentDeviceIndex] = useState(0);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  useEffect(() => {
-    const getCameraPermission = async () => {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.error('Camera API not supported by this browser.');
-        setHasCameraPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Not Supported',
-          description: 'Your browser does not support the camera API.',
-        });
-        return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-        setHasCameraPermission(true);
-      } catch (error) {
-        console.error('Error accessing camera:', error);
-        setHasCameraPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Access Denied',
-          description:
-            'Please enable camera permissions in your browser settings to use this feature.',
-        });
-      }
-    };
-
-    if (!capturedImage) {
-      getCameraPermission();
+  const stopCameraStream = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
     }
+  };
 
+  useEffect(() => {
+    // Cleanup function to stop camera when component unmounts
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
+      stopCameraStream();
     };
-  }, [capturedImage, toast]);
+  }, []);
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      locationDescription: '',
-      description: '',
-      helpNeeded: [],
-      numberOfPeopleAffected: 0,
-      mcc: '' as any,
-      mnc: '' as any,
-      lac: '' as any,
-      cellId: '' as any,
-      latitude: '' as any,
-      longitude: '' as any,
-    },
-  });
+  const openCamera = async (deviceId?: string) => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.error('Camera API not supported by this browser.');
+      setHasCameraPermission(false);
+      toast({
+        variant: 'destructive',
+        title: 'Camera Not Supported',
+        description: 'Your browser does not support the camera API.',
+      });
+      return;
+    }
+    try {
+      // Prefer back camera by default
+      const constraints = deviceId
+        ? { video: { deviceId: { exact: deviceId } } }
+        : { video: { facingMode: 'environment' } };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setHasCameraPermission(true);
+      setIsCameraOpen(true);
+
+      // Populate device list if not already done
+      if (videoDevices.length === 0) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter(d => d.kind === 'videoinput');
+        setVideoDevices(cameras);
+      }
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      setHasCameraPermission(false);
+      setIsCameraOpen(false);
+      toast({
+        variant: 'destructive',
+        title: 'Camera Access Denied',
+        description:
+          'Please enable camera permissions in your browser settings.',
+      });
+    }
+  };
+
+  const handleSwitchCamera = () => {
+    if (videoDevices.length > 1) {
+      const nextIndex = (currentDeviceIndex + 1) % videoDevices.length;
+      setCurrentDeviceIndex(nextIndex);
+      const nextDevice = videoDevices[nextIndex];
+
+      stopCameraStream();
+      openCamera(nextDevice.deviceId);
+    }
+  };
 
   const handleCapture = () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -177,10 +199,10 @@ export function ReportIncidentForm() {
       context.fillText(timestamp, 15, canvas.height - 15);
 
       const dataUrl = canvas.toDataURL('image/jpeg');
-      setCapturedImage(dataUrl);
-      toast({
-        title: 'Photo Captured',
-      });
+      setCapturedImages(prev => [...prev, dataUrl]);
+      toast({ title: 'Photo Captured' });
+      
+      closeCamera();
     };
 
     navigator.geolocation.getCurrentPosition(
@@ -188,12 +210,36 @@ export function ReportIncidentForm() {
         drawText(position.coords.latitude, position.coords.longitude);
       },
       () => {
-        // Handle no GPS access by drawing without coordinates
         drawText();
       },
       { enableHighAccuracy: true }
     );
   };
+  
+  const closeCamera = () => {
+    stopCameraStream();
+    setIsCameraOpen(false);
+  }
+
+  const removeImage = (index: number) => {
+    setCapturedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      locationDescription: '',
+      description: '',
+      helpNeeded: [],
+      numberOfPeopleAffected: 0,
+      mcc: '' as any,
+      mnc: '' as any,
+      lac: '' as any,
+      cellId: '' as any,
+      latitude: '' as any,
+      longitude: '' as any,
+    },
+  });
 
   const handleGpsLocate = () => {
     setIsGpsLocating(true);
@@ -318,13 +364,9 @@ export function ReportIncidentForm() {
 
   async function onSubmit(values: FormValues) {
     startTransition(async () => {
-      const photoDataUri =
-        capturedImage ||
-        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+      const submissionData = { ...values, photoDataUris: capturedImages };
 
-      const submissionData = { ...values, photoDataUri };
-
-      const result = await submitIncidentForValidation(submissionData);
+      const result = await submitIncidentForValidation(submissionData as any);
 
       if (result.success) {
         toast({
@@ -332,7 +374,7 @@ export function ReportIncidentForm() {
           description: result.message,
         });
         form.reset();
-        setCapturedImage(null);
+        setCapturedImages([]);
       } else {
         toast({
           variant: 'destructive',
@@ -522,61 +564,84 @@ export function ReportIncidentForm() {
             )}
           />
 
-          <div className="space-y-2">
-            <FormLabel>Photo Evidence</FormLabel>
-            {hasCameraPermission === false && (
-              <Alert variant="destructive">
-                <AlertTitle>Camera Access Required</AlertTitle>
-                <AlertDescription>
-                  Please enable camera permissions in your browser settings to
-                  capture a photo. You can still submit the report without one.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {hasCameraPermission && !capturedImage && (
-              <div className="relative">
-                <video
-                  ref={videoRef}
-                  className="w-full aspect-video rounded-md bg-muted"
-                  autoPlay
-                  muted
-                  playsInline
-                />
-                <Button
-                  type="button"
-                  onClick={handleCapture}
-                  className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10"
-                >
-                  <Camera className="mr-2 h-4 w-4" /> Capture
-                </Button>
+          <div className="space-y-4">
+            <div>
+              <FormLabel>Photo Evidence</FormLabel>
+              <FormDescription>
+                A photo with location and timestamp is highly recommended. You can add up to 5 photos.
+              </FormDescription>
+            </div>
+            
+            {isCameraOpen ? (
+              <div className="space-y-2">
+                {hasCameraPermission === false ? (
+                  <Alert variant="destructive">
+                    <AlertTitle>Camera Access Required</AlertTitle>
+                    <AlertDescription>
+                      Please enable camera permissions in your browser settings to use this feature.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="relative">
+                    <video
+                      ref={videoRef}
+                      className="w-full aspect-video rounded-md bg-muted"
+                      autoPlay
+                      muted
+                      playsInline
+                    />
+                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
+                        <Button type="button" size="icon" onClick={handleCapture}>
+                          <Camera className="h-5 w-5" />
+                          <span className="sr-only">Capture</span>
+                        </Button>
+                        {videoDevices.length > 1 && (
+                          <Button type="button" size="icon" onClick={handleSwitchCamera}>
+                            <SwitchCamera className="h-5 w-5" />
+                            <span className="sr-only">Switch Camera</span>
+                          </Button>
+                        )}
+                         <Button type="button" variant="secondary" onClick={closeCamera}>Cancel</Button>
+                     </div>
+                  </div>
+                )}
               </div>
-            )}
-
-            {capturedImage && (
+            ) : (
               <div>
-                <p className="text-sm font-medium">Image Preview</p>
-                <img
-                  src={capturedImage}
-                  alt="Captured incident"
-                  className="w-full aspect-video rounded-md mt-2 object-cover border"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCapturedImage(null)}
-                  className="mt-2"
-                >
-                  Retake Photo
-                </Button>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-2">
+                  {capturedImages.map((image, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={image}
+                        alt={`Captured incident ${index + 1}`}
+                        className="w-full aspect-square rounded-md object-cover border"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => removeImage(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                {capturedImages.length < 5 && (
+                   <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => openCamera()}
+                    disabled={isCameraOpen}
+                  >
+                    <Camera className="mr-2 h-4 w-4" />
+                    {capturedImages.length > 0 ? 'Add Another Photo' : 'Capture Photo'}
+                  </Button>
+                )}
               </div>
             )}
             <canvas ref={canvasRef} className="hidden" />
-            <FormDescription>
-              Optional, but a photo with location and timestamp is highly
-              recommended.
-            </FormDescription>
           </div>
         </div>
 
