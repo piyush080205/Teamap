@@ -1,7 +1,6 @@
 "use client";
 
-import Map, { Marker, Popup } from "react-map-gl";
-import maplibregl from "maplibre-gl";
+import Map, { Marker, Popup } from "react-map-gl/maplibre";
 import { useState } from "react";
 import { incidents } from "@/lib/data";
 import type { Incident } from "@/lib/types";
@@ -65,7 +64,6 @@ export function MapView() {
 
   return (
     <Map
-      mapLib={maplibregl}
       initialViewState={{
         ...position,
         zoom: 12,
