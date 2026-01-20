@@ -22,7 +22,7 @@ const severityVariantMap = {
   Info: "secondary",
 } as const;
 
-export function IncidentCard({ incident }: { incident: Incident }) {
+export function IncidentCard({ incident, onRemove }: { incident: Incident; onRemove?: (id: string) => void }) {
   const { toast } = useToast();
   const timeAgo = formatDistanceToNow(new Date(incident.timestamp), {
     addSuffix: true,
@@ -33,6 +33,9 @@ export function IncidentCard({ incident }: { incident: Incident }) {
       title: "Feedback Received",
       description: `You've marked this incident as "${verificationType}". Thank you!`,
     });
+    if (onRemove) {
+      onRemove(incident.id);
+    }
   };
 
   return (

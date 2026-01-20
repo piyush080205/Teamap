@@ -10,11 +10,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ListFilter } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { Incident } from "@/lib/types";
 
 // Combine the duplicated incidents into a single list
-const incidents = [
+const incidentsData = [
   ...initialIncidents,
   ...initialIncidents.map((incident) => ({
     ...incident,
@@ -57,7 +57,7 @@ function getDistance(
 
 export default function AlertsPage() {
   const [sortBy, setSortBy] = useState("distance");
-  const [sortedIncidents, setSortedIncidents] = useState<Incident[]>([]);
+  const [incidents, setIncidents] = useState<Incident[]>(incidentsData);
   const [userPosition, setUserPosition] = useState<{
     latitude: number;
     longitude: number;
@@ -84,8 +84,12 @@ export default function AlertsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    let newSortedIncidents = [...incidents];
+  const handleRemoveIncident = (id: string) => {
+    setIncidents(prevIncidents => prevIncidents.filter(incident => incident.id !== id));
+  };
+
+  const sortedIncidents = useMemo(() => {
+    const newSortedIncidents = [...incidents];
 
     switch (sortBy) {
       case "time":
@@ -118,8 +122,8 @@ export default function AlertsPage() {
       default:
         break;
     }
-    setSortedIncidents(newSortedIncidents);
-  }, [sortBy, userPosition]);
+    return newSortedIncidents;
+  }, [incidents, sortBy, userPosition]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -142,7 +146,7 @@ export default function AlertsPage() {
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {sortedIncidents.map((incident) => (
-          <IncidentCard key={incident.id} incident={incident} />
+          <IncidentCard key={incident.id} incident={incident} onRemove={handleRemoveIncident} />
         ))}
       </div>
     </div>
