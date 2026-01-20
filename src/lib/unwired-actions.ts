@@ -3,10 +3,10 @@
 import { z } from 'zod';
 
 const schema = z.object({
-  mcc: z.number(),
-  mnc: z.number(),
-  lac: z.number(),
-  cid: z.number(),
+  mcc: z.coerce.number(),
+  mnc: z.coerce.number(),
+  lac: z.coerce.number(),
+  cid: z.coerce.number(),
 });
 
 export async function getLocationFromCell(input: {
