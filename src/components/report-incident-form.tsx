@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useState, useTransition } from 'react';
-import { ChevronsUpDown, Loader2 } from 'lucide-react';
+import { ChevronsUpDown, Loader2, MapPin } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -92,6 +92,7 @@ function fileToDataURI(file: File): Promise<string> {
 export function ReportIncidentForm() {
   const [isPending, startTransition] = useTransition();
   const [isLocating, setIsLocating] = useState(false);
+  const [isGpsLocating, setIsGpsLocating] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
@@ -101,8 +102,51 @@ export function ReportIncidentForm() {
       description: '',
       helpNeeded: [],
       numberOfPeopleAffected: 0,
+      mcc: '' as any,
+      mnc: '' as any,
+      lac: '' as any,
+      cellId: '' as any,
+      latitude: '' as any,
+      longitude: '' as any,
     },
   });
+
+  const handleGpsLocate = () => {
+    setIsGpsLocating(true);
+    if (!navigator.geolocation) {
+      toast({
+        variant: 'destructive',
+        title: 'GPS Not Supported',
+        description: 'Your browser does not support geolocation.',
+      });
+      setIsGpsLocating(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const { latitude, longitude } = position.coords;
+        form.setValue('latitude', latitude);
+        form.setValue('longitude', longitude);
+        toast({
+          title: 'Location Found',
+          description: `Lat: ${latitude.toFixed(6)}, Lon: ${longitude.toFixed(
+            6
+          )}`,
+        });
+        setIsGpsLocating(false);
+      },
+      error => {
+        toast({
+          variant: 'destructive',
+          title: 'Could Not Get Location',
+          description: error.message,
+        });
+        setIsGpsLocating(false);
+      },
+      { enableHighAccuracy: true }
+    );
+  };
 
   const handleCellLocate = async () => {
     setIsLocating(true);
@@ -119,7 +163,12 @@ export function ReportIncidentForm() {
       return;
     }
 
-    const result = await getLocationFromCell({ mcc, mnc, lac, cid: cellId });
+    const result = await getLocationFromCell({
+      mcc: mcc,
+      mnc: mnc,
+      lac: lac,
+      cid: cellId,
+    });
 
     if (result.success && result.lat && result.lon) {
       form.setValue('latitude', result.lat);
@@ -247,15 +296,30 @@ export function ReportIncidentForm() {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Location</FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="e.g., Near City Hall, corner of Main St & 1st Ave"
-                  {...field}
-                />
-              </FormControl>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <FormControl>
+                  <Input
+                    placeholder="e.g., Near Marine Drive, facing the sea"
+                    {...field}
+                  />
+                </FormControl>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleGpsLocate}
+                  disabled={isGpsLocating}
+                  className="shrink-0"
+                >
+                  {isGpsLocating ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <MapPin className="mr-2 h-4 w-4" />
+                  )}
+                  Use My Location
+                </Button>
+              </div>
               <FormDescription>
-                Be as specific as possible. Your current location will also be
-                used.
+                Describe the location or use your device's GPS for accuracy.
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -368,7 +432,10 @@ export function ReportIncidentForm() {
 
         <Collapsible>
           <CollapsibleTrigger asChild>
-            <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-foreground">
+            <Button
+              variant="link"
+              className="p-0 h-auto text-muted-foreground hover:text-foreground"
+            >
               <ChevronsUpDown className="h-4 w-4 mr-2" />
               Advanced: Locate with Cell Tower (for non-GPS devices)
             </Button>
@@ -460,7 +527,7 @@ export function ReportIncidentForm() {
             </Button>
           </CollapsibleContent>
         </Collapsible>
-        
+
         <FormField
           control={form.control}
           name="latitude"
@@ -483,7 +550,6 @@ export function ReportIncidentForm() {
             </FormItem>
           )}
         />
-
 
         <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
