@@ -8,6 +8,14 @@ const userAvatar4 = PlaceHolderImages.find(p => p.id === 'user-avatar-4')?.image
 const userAvatar5 = PlaceHolderImages.find(p => p.id === 'user-avatar-5')?.imageUrl ?? "https://picsum.photos/seed/105/40/40";
 const userAvatar6 = PlaceHolderImages.find(p => p.id === 'user-avatar-6')?.imageUrl ?? "https://picsum.photos/seed/106/40/40";
 
+const incidentPhoto1 = PlaceHolderImages.find(p => p.id === 'incident-photo-1')?.imageUrl;
+const incidentFire1 = PlaceHolderImages.find(p => p.id === 'incident-fire-1')?.imageUrl;
+const incidentHazard1 = PlaceHolderImages.find(p => p.id === 'incident-hazard-1')?.imageUrl;
+const incidentCrime1 = PlaceHolderImages.find(p => p.id === 'incident-crime-1')?.imageUrl;
+const incidentMedical1 = PlaceHolderImages.find(p => p.id === 'incident-medical-1')?.imageUrl;
+const incidentWeather1 = PlaceHolderImages.find(p => p.id === 'incident-weather-1')?.imageUrl;
+const incidentOther1 = PlaceHolderImages.find(p => p.id === 'incident-other-1')?.imageUrl;
+
 
 export const incidents: Incident[] = [
   {
@@ -21,6 +29,7 @@ export const incidents: Incident[] = [
     status: 'Verified',
     verificationCount: 5,
     user: { name: 'Rohan Joshi', avatarUrl: userAvatar1 },
+    imageUrl: incidentPhoto1,
   },
   {
     id: '2',
@@ -33,6 +42,7 @@ export const incidents: Incident[] = [
     status: 'Verifying',
     verificationCount: 2,
     user: { name: 'Priya Kulkarni', avatarUrl: userAvatar2 },
+    imageUrl: incidentFire1,
   },
   {
     id: '3',
@@ -45,6 +55,7 @@ export const incidents: Incident[] = [
     status: 'Verified',
     verificationCount: 3,
     user: { name: 'Sameer Patil', avatarUrl: userAvatar3 },
+    imageUrl: incidentHazard1,
   },
     {
     id: '4',
@@ -57,6 +68,7 @@ export const incidents: Incident[] = [
     status: 'Unverified',
     verificationCount: 0,
     user: { name: 'Anonymous', avatarUrl: userAvatar4 },
+    imageUrl: incidentCrime1,
   },
   {
     id: '5',
@@ -69,6 +81,7 @@ export const incidents: Incident[] = [
     status: 'Verifying',
     verificationCount: 1,
     user: { name: 'Anita Rao', avatarUrl: userAvatar5 },
+    imageUrl: incidentMedical1,
   },
   {
     id: '6',
@@ -81,6 +94,7 @@ export const incidents: Incident[] = [
     status: 'Verified',
     verificationCount: 7,
     user: { name: 'Vikram Deshmukh', avatarUrl: userAvatar6 },
+    imageUrl: incidentWeather1,
   },
   {
     id: '7',
@@ -93,5 +107,6 @@ export const incidents: Incident[] = [
     status: 'False',
     verificationCount: 4,
     user: { name: 'Sanjay Pawar', avatarUrl: userAvatar1 },
+    imageUrl: incidentOther1,
   }
 ];

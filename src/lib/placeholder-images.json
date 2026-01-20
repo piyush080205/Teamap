@@ -41,6 +41,42 @@
       "description": "Photo of a car accident",
       "imageUrl": "https://images.unsplash.com/photo-1687867451910-28941a460f35?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2FyJTIwYWNjaWRlbnR8ZW58MHx8fHwxNzY4OTQyNDgwfDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "car accident"
+    },
+    {
+      "id": "incident-medical-1",
+      "description": "Photo of a medical emergency",
+      "imageUrl": "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&h=400&fit=crop",
+      "imageHint": "medical emergency"
+    },
+    {
+      "id": "incident-hazard-1",
+      "description": "Photo of a road hazard",
+      "imageUrl": "https://images.unsplash.com/photo-1541703633853-278a6c5a0440?w=600&h=400&fit=crop",
+      "imageHint": "road hazard"
+    },
+    {
+      "id": "incident-fire-1",
+      "description": "Photo of a fire",
+      "imageUrl": "https://images.unsplash.com/photo-1599933580036-15c4442293cd?w=600&h=400&fit=crop",
+      "imageHint": "building fire"
+    },
+    {
+      "id": "incident-crime-1",
+      "description": "Photo of a crime scene",
+      "imageUrl": "https://images.unsplash.com/photo-1593132318196-3c667f49e4be?w=600&h=400&fit=crop",
+      "imageHint": "crime scene"
+    },
+    {
+      "id": "incident-weather-1",
+      "description": "Photo of a weather event",
+      "imageUrl": "https://images.unsplash.com/photo-1561485038-15c4b81c0da7?w=600&h=400&fit=crop",
+      "imageHint": "stormy weather"
+    },
+    {
+      "id": "incident-other-1",
+      "description": "Photo of a crowd",
+      "imageUrl": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&h=400&fit=crop",
+      "imageHint": "crowd gathering"
     }
   ]
 }

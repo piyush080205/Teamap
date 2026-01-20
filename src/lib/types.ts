@@ -19,6 +19,7 @@ export type Incident = {
     name: string;
     avatarUrl: string;
   };
+  imageUrl?: string;
 };
 
 export type NavItem = {

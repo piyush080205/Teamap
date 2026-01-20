@@ -7,6 +7,8 @@ import type { Incident } from "@/lib/types";
 import { Badge } from "./ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { MapPin } from "lucide-react";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
+import Image from "next/image";
 
 const markerColors = {
   Critical: "#F44336", // red
@@ -94,6 +96,10 @@ export function MapView() {
     if (userPosition) {
       const randomOffset = () => (Math.random() - 0.5) * 0.0054; // approx 300m radius
 
+      const medicalImage = PlaceHolderImages.find(p => p.id === 'incident-medical-1')?.imageUrl;
+      const hazardImage = PlaceHolderImages.find(p => p.id === 'incident-hazard-1')?.imageUrl;
+      const fireImage = PlaceHolderImages.find(p => p.id === 'incident-fire-1')?.imageUrl;
+
       const nearbyIncidents: Incident[] = [
         {
           id: "nearby-1",
@@ -112,6 +118,7 @@ export function MapView() {
             name: "Local Resident",
             avatarUrl: "https://picsum.photos/seed/301/40/40",
           },
+          imageUrl: medicalImage,
         },
         {
           id: "nearby-2",
@@ -130,6 +137,7 @@ export function MapView() {
             name: "Commuter",
             avatarUrl: "https://picsum.photos/seed/302/40/40",
           },
+          imageUrl: hazardImage,
         },
         {
           id: "nearby-3",
@@ -148,6 +156,7 @@ export function MapView() {
             name: "Shopkeeper",
             avatarUrl: "https://picsum.photos/seed/303/40/40",
           },
+          imageUrl: fireImage,
         },
       ];
 
@@ -231,6 +240,15 @@ export function MapView() {
           offset={30}
         >
           <div className="p-2 w-64">
+            {selectedIncident.imageUrl && (
+                <Image
+                    src={selectedIncident.imageUrl}
+                    alt={selectedIncident.type}
+                    width={240}
+                    height={120}
+                    className="mb-2 rounded-md object-cover"
+                />
+            )}
             <h3 className="font-headline text-md font-bold mb-1">
               {selectedIncident.type}
             </h3>

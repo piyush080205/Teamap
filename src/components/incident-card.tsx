@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { Check, HelpCircle, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import Image from "next/image";
 
 const severityVariantMap = {
   Critical: "destructive",
@@ -53,6 +54,17 @@ export function IncidentCard({ incident, onRemove }: { incident: Incident; onRem
         <CardDescription>{incident.address}</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow">
+        {incident.imageUrl && (
+          <div className="mb-4">
+            <Image
+              src={incident.imageUrl}
+              alt={incident.type}
+              width={400}
+              height={250}
+              className="rounded-md object-cover w-full aspect-video"
+            />
+          </div>
+        )}
         <p className="text-sm text-foreground/80 line-clamp-3">
           {incident.description}
         </p>
