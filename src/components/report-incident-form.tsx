@@ -44,6 +44,9 @@ import { submitIncidentForValidation } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import type { IncidentType, IncidentSeverity } from '@/lib/types';
 import { getLocationFromCell } from '@/lib/unwired-actions';
+import { useUser, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
 
 const incidentTypes: IncidentType[] = [
   'Accident',
@@ -105,6 +108,11 @@ export function ReportIncidentForm() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const router = useRouter();
+
 
   const stopCameraStream = () => {
     if (videoRef.current && videoRef.current.srcObject) {
@@ -421,25 +429,69 @@ export function ReportIncidentForm() {
 
   async function onSubmit(values: FormValues) {
     startTransition(async () => {
-      const submissionData = { ...values, photoDataUris: [...capturedImages, ...capturedVideos] };
-
-      const result = await submitIncidentForValidation(submissionData as any);
-
-      if (result.success) {
-        toast({
-          title: 'Report Submitted',
-          description: result.message,
-        });
-        form.reset();
-        setCapturedImages([]);
-        setCapturedVideos([]);
-      } else {
+      if (!user || !firestore) {
         toast({
           variant: 'destructive',
-          title: 'Submission Failed',
-          description: result.message,
+          title: 'Not Authenticated',
+          description: 'You must be logged in to submit a report.',
         });
+        return;
       }
+  
+      const submissionData = { ...values, photoDataUris: [...capturedImages, ...capturedVideos] };
+  
+      const validationResult = await submitIncidentForValidation(submissionData as any);
+  
+      if (!validationResult.success || !validationResult.data) {
+        toast({
+          variant: 'destructive',
+          title: 'AI Validation Failed',
+          description: validationResult.message,
+        });
+        return;
+      }
+  
+      const { isAuthentic, summary, authenticityConfidence } = validationResult.data;
+      
+      const newIncident = {
+        userId: user.uid,
+        incidentType: values.incidentType,
+        locationDescription: values.locationDescription,
+        description: values.description,
+        severity: values.severityLevel,
+        helpNeeded: values.helpNeeded,
+        numberOfPeopleAffected: values.numberOfPeopleAffected,
+        latitude: values.latitude || null,
+        longitude: values.longitude || null,
+        photoURL: submissionData.photoDataUris.length > 0 ? submissionData.photoDataUris[0] : null,
+        status: isAuthentic ? 'Verifying' : 'Unverified',
+        aiSummary: summary,
+        authenticityConfidence: authenticityConfidence,
+        isAuthentic: isAuthentic,
+        timestamp: serverTimestamp(),
+      };
+  
+      const incidentsCollectionRef = collection(firestore, 'users', user.uid, 'incidents');
+      
+      addDoc(incidentsCollectionRef, newIncident)
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: incidentsCollectionRef.path,
+            operation: 'create',
+            requestResourceData: newIncident,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
+  
+      toast({
+        title: 'Report Submitted',
+        description: 'Your incident has been submitted for verification.',
+      });
+  
+      form.reset();
+      setCapturedImages([]);
+      setCapturedVideos([]);
+      router.push('/alerts');
     });
   }
 
