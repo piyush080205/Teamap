@@ -1,0 +1,164 @@
+/**
+ * Core Philosophy:
+ * This ruleset enforces a strict, user-centric ownership model. All data,
+ * including user profiles, incidents, and verifications, is nested under
+ * a user's unique ID (`/users/{userId}`). This design ensures that users have
+ * complete control over their own data tree and cannot access, modify, or even
+ * see the data of other users.
+ *
+ * Data Structure:
+ * The data is organized hierarchically to reflect ownership:
+ * - /users/{userId}: A user's own profile document.
+ * - /users/{userId}/incidents/{incidentId}: Incidents reported by that user.
+ * - /users/{userId}/incidents/{incidentId}/verifications/{verificationId}:
+ *   Verifications associated with a specific incident.
+ *
+ * Key Security Decisions:
+ * - Path-Based Security: Authorization is primarily determined by the {userId}
+ *   wildcard in the document path, making rules simple and performant.
+ * - No Public Data: There are no publicly readable collections. All access
+ *   requires authentication.
+ * - No User Listing: To protect user privacy, it is impossible to list all
+ *   documents in the top-level `/users` collection.
+ * - Relational Integrity: On creation, documents must contain an ID field that
+ *   matches the corresponding ID in the path (e.g., an incident's `userId` field
+ *   must match the `{userId}` in its path). These relational fields are then
+ *   enforced as immutable to prevent re-association.
+ * - Prototyping Flexibility: While authorization and relational links are
+ *   strictly enforced, the rules do not validate the shape or data types of
+ *   other document fields, allowing for rapid front-end development.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --------------------------------------------------------------------
+    // Helper Functions
+    // --------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the currently authenticated user's UID matches the provided userId.
+     * This is the foundation of the ownership model.
+     * @param userId The UID to check against the request's authentication token.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks for ownership on an existing document. Used for safe updates and deletes.
+     * Prevents operations on documents that do not exist.
+     * @param userId The UID of the document owner.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * Validates a new user profile upon creation.
+     * Ensures the user is creating their own profile and that the document's
+     * internal `id` field correctly matches their UID for relational integrity.
+     */
+    function isCreatingValidUserProfile(userId) {
+      return isOwner(userId) && request.resource.data.id == userId;
+    }
+
+    /**
+     * Enforces immutability of the user's ID field on their profile document.
+     * Prevents the core link between the document and the user's auth UID from
+     * being broken during an update.
+     */
+    function isUserProfileImmutable() {
+      return request.resource.data.id == resource.data.id;
+    }
+    
+    /**
+     * Validates a new incident upon creation.
+     * Ensures the `userId` field within the document data matches the owner
+     * specified in the path.
+     */
+    function isCreatingValidIncident(userId) {
+      return request.resource.data.userId == userId;
+    }
+
+    /**
+     * Enforces the immutability of the ownership link on an incident.
+     */
+    function isIncidentImmutable() {
+      return request.resource.data.userId == resource.data.userId;
+    }
+    
+    /**
+     * Validates a new verification upon creation.
+     * Ensures the verification's `userId` and `incidentId` fields in the data
+     * correctly match the IDs from the document path.
+     */
+    function isCreatingValidVerification(userId, incidentId) {
+      return request.resource.data.userId == userId && request.resource.data.incidentId == incidentId;
+    }
+
+    /**
+     * Enforces the immutability of relational links on a verification.
+     */
+    function isVerificationImmutable() {
+      return request.resource.data.userId == resource.data.userId
+          && request.resource.data.incidentId == resource.data.incidentId;
+    }
+
+    // --------------------------------------------------------------------
+    // Collection Rules
+    // --------------------------------------------------------------------
+
+    /**
+     * @description Controls access to a user's profile document.
+     * @path /users/{userId}
+     * @allow A user (auth.uid='user123') can (create) their own profile at /users/user123.
+     * @deny An anonymous user cannot (get) any user profile. A user ('userABC') cannot (update) another user's profile ('user123').
+     * @principle Restricts access to a user's own data tree and prevents user enumeration.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isCreatingValidUserProfile(userId);
+      allow update: if isExistingOwner(userId) && isUserProfileImmutable();
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to incidents reported by a specific user.
+     * @path /users/{userId}/incidents/{incidentId}
+     * @allow A user (auth.uid='user123') can (create) and (list) incidents under their own path /users/user123/incidents.
+     * @deny A user ('userABC') cannot (get) an incident from another user's path (/users/user123/incidents/...).
+     * @principle Enforces document ownership for all operations based on the parent user document.
+     */
+    match /users/{userId}/incidents/{incidentId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && isCreatingValidIncident(userId);
+      allow update: if isExistingOwner(userId) && isIncidentImmutable();
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to verifications for a specific incident.
+     * @path /users/{userId}/incidents/{incidentId}/verifications/{verificationId}
+     * @allow The incident owner ('user123') can (create) a verification for their own incident.
+     * @deny Another user ('userABC') cannot (create) or (list) verifications on an incident owned by 'user123'.
+     * @principle Inherits ownership from the parent user, ensuring only the incident owner can manage its sub-collections.
+     */
+    match /users/{userId}/incidents/{incidentId}/verifications/{verificationId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && isCreatingValidVerification(userId, incidentId);
+      allow update: if isExistingOwner(userId) && isVerificationImmutable();
+      allow delete: if isExistingOwner(userId);
+    }
+  }
+}
