@@ -387,7 +387,12 @@ export function ReportIncidentForm() {
                   <FormItem>
                     <FormLabel>MCC</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g. 310" {...field} />
+                      <Input
+                        type="number"
+                        placeholder="e.g. 310"
+                        {...field}
+                        value={field.value ?? ''}
+                      />
                     </FormControl>
                   </FormItem>
                 )}
@@ -399,7 +404,12 @@ export function ReportIncidentForm() {
                   <FormItem>
                     <FormLabel>MNC</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g. 410" {...field} />
+                      <Input
+                        type="number"
+                        placeholder="e.g. 410"
+                        {...field}
+                        value={field.value ?? ''}
+                      />
                     </FormControl>
                   </FormItem>
                 )}
@@ -411,7 +421,12 @@ export function ReportIncidentForm() {
                   <FormItem>
                     <FormLabel>LAC</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g. 2153" {...field} />
+                      <Input
+                        type="number"
+                        placeholder="e.g. 2153"
+                        {...field}
+                        value={field.value ?? ''}
+                      />
                     </FormControl>
                   </FormItem>
                 )}
@@ -427,6 +442,7 @@ export function ReportIncidentForm() {
                         type="number"
                         placeholder="e.g. 2345"
                         {...field}
+                        value={field.value ?? ''}
                       />
                     </FormControl>
                   </FormItem>
@@ -451,7 +467,7 @@ export function ReportIncidentForm() {
           render={({ field }) => (
             <FormItem className="hidden">
               <FormControl>
-                <Input type="hidden" {...field} />
+                <Input type="hidden" {...field} value={field.value ?? ''} />
               </FormControl>
             </FormItem>
           )}
@@ -462,7 +478,7 @@ export function ReportIncidentForm() {
           render={({ field }) => (
             <FormItem className="hidden">
               <FormControl>
-                <Input type="hidden" {...field} />
+                <Input type="hidden" {...field} value={field.value ?? ''} />
               </FormControl>
             </FormItem>
           )}
