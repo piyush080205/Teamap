@@ -143,11 +143,12 @@ export function ReportIncidentForm() {
     try {
       const constraints = deviceId
         ? { video: { deviceId: { exact: deviceId } } }
-        : { video: { facingMode: 'environment' } };
+        : { video: { facingMode: { ideal: 'environment' } } };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.play();
       }
       setHasCameraPermission(true);
       setIsCameraOpen(true);
