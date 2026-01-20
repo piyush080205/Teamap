@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { useState, useTransition } from "react";
-import { Loader2 } from "lucide-react";
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { useState, useTransition } from 'react';
+import { ChevronsUpDown, Loader2 } from 'lucide-react';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -15,51 +15,63 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { submitIncidentForValidation } from "@/lib/actions";
-import { useToast } from "@/hooks/use-toast";
-import type { IncidentType, IncidentSeverity } from "@/lib/types";
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { submitIncidentForValidation } from '@/lib/actions';
+import { useToast } from '@/hooks/use-toast';
+import type { IncidentType, IncidentSeverity } from '@/lib/types';
+import { getLocationFromCell } from '@/lib/unwired-actions';
 
 const incidentTypes: IncidentType[] = [
-  "Accident",
-  "Crime",
-  "Fire",
-  "Hazard",
-  "Medical",
-  "Weather",
-  "Other",
+  'Accident',
+  'Crime',
+  'Fire',
+  'Hazard',
+  'Medical',
+  'Weather',
+  'Other',
 ];
-const severityLevels: IncidentSeverity[] = ["Info", "Warning", "Critical"];
-const helpOptions = ["Medical", "Fire", "Police", "Rescue", "Volunteers"];
+const severityLevels: IncidentSeverity[] = ['Info', 'Warning', 'Critical'];
+const helpOptions = ['Medical', 'Fire', 'Police', 'Rescue', 'Volunteers'];
 
 const formSchema = z.object({
-  incidentType: z.string({ required_error: "Please select an incident type." }),
+  incidentType: z.string({ required_error: 'Please select an incident type.' }),
   locationDescription: z
     .string()
-    .min(10, "Please provide more details about the location."),
+    .min(10, 'Please provide more details about the location.'),
   description: z
     .string()
-    .min(10, "Please provide more details about the incident."),
+    .min(10, 'Please provide more details about the incident.'),
   severityLevel: z.string({
-    required_error: "Please select a severity level.",
+    required_error: 'Please select a severity level.',
   }),
   helpNeeded: z
     .array(z.string())
-    .refine((value) => value.some((item) => item), {
-      message: "You have to select at least one item.",
+    .refine(value => value.some(item => item), {
+      message: 'You have to select at least one item.',
     }),
   numberOfPeopleAffected: z.coerce.number().min(0),
   photo: z.instanceof(File).optional(),
+  mcc: z.coerce.number().optional(),
+  mnc: z.coerce.number().optional(),
+  lac: z.coerce.number().optional(),
+  cellId: z.coerce.number().optional(),
+  latitude: z.coerce.number().optional(),
+  longitude: z.coerce.number().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -70,7 +82,7 @@ function fileToDataURI(file: File): Promise<string> {
     reader.onload = () => {
       resolve(reader.result as string);
     };
-    reader.onerror = (error) => {
+    reader.onerror = error => {
       reject(error);
     };
     reader.readAsDataURL(file);
@@ -79,29 +91,68 @@ function fileToDataURI(file: File): Promise<string> {
 
 export function ReportIncidentForm() {
   const [isPending, startTransition] = useTransition();
+  const [isLocating, setIsLocating] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      locationDescription: "",
-      description: "",
+      locationDescription: '',
+      description: '',
       helpNeeded: [],
       numberOfPeopleAffected: 0,
     },
   });
 
+  const handleCellLocate = async () => {
+    setIsLocating(true);
+    const { mcc, mnc, lac, cellId } = form.getValues();
+
+    if (!mcc || !mnc || !lac || !cellId) {
+      toast({
+        variant: 'destructive',
+        title: 'Missing Information',
+        description:
+          'Please fill in all cell tower fields (MCC, MNC, LAC, Cell ID).',
+      });
+      setIsLocating(false);
+      return;
+    }
+
+    const result = await getLocationFromCell({ mcc, mnc, lac, cid: cellId });
+
+    if (result.success && result.lat && result.lon) {
+      form.setValue('latitude', result.lat);
+      form.setValue('longitude', result.lon);
+      toast({
+        title: 'Location Pinpointed',
+        description: `Lat: ${result.lat.toFixed(
+          6
+        )}, Lon: ${result.lon.toFixed(6)}`,
+      });
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Location Not Found',
+        description: result.message,
+      });
+    }
+
+    setIsLocating(false);
+  };
+
   async function onSubmit(values: FormValues) {
     startTransition(async () => {
-      let photoDataUri = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; // 1x1 transparent gif
+      let photoDataUri =
+        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // 1x1 transparent gif
       if (values.photo) {
         try {
           photoDataUri = await fileToDataURI(values.photo);
         } catch (error) {
           toast({
-            variant: "destructive",
-            title: "Error processing image",
-            description: "Could not read the uploaded file.",
+            variant: 'destructive',
+            title: 'Error processing image',
+            description: 'Could not read the uploaded file.',
           });
           return;
         }
@@ -115,14 +166,14 @@ export function ReportIncidentForm() {
 
       if (result.success) {
         toast({
-          title: "Report Submitted",
+          title: 'Report Submitted',
           description: result.message,
         });
         form.reset();
       } else {
         toast({
-          variant: "destructive",
-          title: "Submission Failed",
+          variant: 'destructive',
+          title: 'Submission Failed',
           description: result.message,
         });
       }
@@ -149,7 +200,7 @@ export function ReportIncidentForm() {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {incidentTypes.map((type) => (
+                    {incidentTypes.map(type => (
                       <SelectItem key={type} value={type}>
                         {type}
                       </SelectItem>
@@ -177,7 +228,7 @@ export function ReportIncidentForm() {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {severityLevels.map((level) => (
+                    {severityLevels.map(level => (
                       <SelectItem key={level} value={level}>
                         {level}
                       </SelectItem>
@@ -241,37 +292,37 @@ export function ReportIncidentForm() {
                 </FormDescription>
               </div>
               <div className="grid md:grid-cols-3 gap-4">
-              {helpOptions.map((item) => (
-                <FormField
-                  key={item}
-                  control={form.control}
-                  name="helpNeeded"
-                  render={({ field }) => {
-                    return (
-                      <FormItem
-                        key={item}
-                        className="flex flex-row items-start space-x-3 space-y-0"
-                      >
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value?.includes(item)}
-                            onCheckedChange={(checked) => {
-                              return checked
-                                ? field.onChange([...field.value, item])
-                                : field.onChange(
-                                    field.value?.filter(
-                                      (value) => value !== item
-                                    )
-                                  );
-                            }}
-                          />
-                        </FormControl>
-                        <FormLabel className="font-normal">{item}</FormLabel>
-                      </FormItem>
-                    );
-                  }}
-                />
-              ))}
+                {helpOptions.map(item => (
+                  <FormField
+                    key={item}
+                    control={form.control}
+                    name="helpNeeded"
+                    render={({ field }) => {
+                      return (
+                        <FormItem
+                          key={item}
+                          className="flex flex-row items-start space-x-3 space-y-0"
+                        >
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value?.includes(item)}
+                              onCheckedChange={checked => {
+                                return checked
+                                  ? field.onChange([...field.value, item])
+                                  : field.onChange(
+                                      field.value?.filter(
+                                        value => value !== item
+                                      )
+                                    );
+                              }}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal">{item}</FormLabel>
+                        </FormItem>
+                      );
+                    }}
+                  />
+                ))}
               </div>
               <FormMessage />
             </FormItem>
@@ -303,7 +354,7 @@ export function ReportIncidentForm() {
                   <Input
                     type="file"
                     accept="image/*,video/*"
-                    onChange={(e) => field.onChange(e.target.files?.[0])}
+                    onChange={e => field.onChange(e.target.files?.[0])}
                   />
                 </FormControl>
                 <FormDescription>
@@ -314,6 +365,109 @@ export function ReportIncidentForm() {
             )}
           />
         </div>
+
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <Button variant="link" className="p-0 h-auto text-muted-foreground hover:text-foreground">
+              <ChevronsUpDown className="h-4 w-4 mr-2" />
+              Advanced: Locate with Cell Tower (for non-GPS devices)
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-4 pt-4 animate-accordion-down">
+            <p className="text-sm text-muted-foreground">
+              If GPS is unavailable, you can try to get a location from
+              cellular network information. This data is usually found in your
+              device's network settings.
+            </p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <FormField
+                control={form.control}
+                name="mcc"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>MCC</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="e.g. 310" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="mnc"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>MNC</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="e.g. 410" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="lac"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>LAC</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="e.g. 2153" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="cellId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cell ID</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="e.g. 2345"
+                        {...field}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCellLocate}
+              disabled={isLocating}
+            >
+              {isLocating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Pinpoint Location from Cell Data
+            </Button>
+          </CollapsibleContent>
+        </Collapsible>
+        
+        <FormField
+          control={form.control}
+          name="latitude"
+          render={({ field }) => (
+            <FormItem className="hidden">
+              <FormControl>
+                <Input type="hidden" {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="longitude"
+          render={({ field }) => (
+            <FormItem className="hidden">
+              <FormControl>
+                <Input type="hidden" {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
 
         <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
