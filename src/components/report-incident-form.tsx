@@ -3,8 +3,9 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useState, useTransition } from 'react';
-import { ChevronsUpDown, Loader2, MapPin } from 'lucide-react';
+import { useState, useTransition, useEffect, useRef } from 'react';
+import { ChevronsUpDown, Loader2, MapPin, Camera } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -65,7 +66,6 @@ const formSchema = z.object({
       message: 'You have to select at least one item.',
     }),
   numberOfPeopleAffected: z.coerce.number().min(0),
-  photo: z.instanceof(File).optional(),
   mcc: z.coerce.number().optional(),
   mnc: z.coerce.number().optional(),
   lac: z.coerce.number().optional(),
@@ -76,24 +76,60 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-function fileToDataURI(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      resolve(reader.result as string);
-    };
-    reader.onerror = error => {
-      reject(error);
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 export function ReportIncidentForm() {
   const [isPending, startTransition] = useTransition();
   const [isLocating, setIsLocating] = useState(false);
   const [isGpsLocating, setIsGpsLocating] = useState(false);
   const { toast } = useToast();
+
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(
+    null
+  );
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const getCameraPermission = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error('Camera API not supported by this browser.');
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Not Supported',
+          description: 'Your browser does not support the camera API.',
+        });
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        setHasCameraPermission(true);
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description:
+            'Please enable camera permissions in your browser settings to use this feature.',
+        });
+      }
+    };
+
+    if (!capturedImage) {
+      getCameraPermission();
+    }
+
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [capturedImage, toast]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -111,6 +147,54 @@ export function ReportIncidentForm() {
     },
   });
 
+  const handleCapture = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const drawText = (lat?: number, lon?: number) => {
+      const timestamp = new Date().toLocaleString();
+      context.fillStyle = 'white';
+      context.font = '20px Arial';
+      context.shadowColor = 'black';
+      context.shadowBlur = 5;
+      context.textAlign = 'left';
+
+      const latLonText =
+        lat && lon
+          ? `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}`
+          : 'Location not available';
+      context.fillText(latLonText, 15, canvas.height - 40);
+      context.fillText(timestamp, 15, canvas.height - 15);
+
+      const dataUrl = canvas.toDataURL('image/jpeg');
+      setCapturedImage(dataUrl);
+      toast({
+        title: 'Photo Captured',
+      });
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        drawText(position.coords.latitude, position.coords.longitude);
+      },
+      () => {
+        // Handle no GPS access by drawing without coordinates
+        drawText();
+      },
+      { enableHighAccuracy: true }
+    );
+  };
+
   const handleGpsLocate = () => {
     setIsGpsLocating(true);
     if (!navigator.geolocation) {
@@ -124,7 +208,7 @@ export function ReportIncidentForm() {
     }
 
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
+      async position => {
         const { latitude, longitude } = position.coords;
         form.setValue('latitude', latitude);
         form.setValue('longitude', longitude);
@@ -137,36 +221,43 @@ export function ReportIncidentForm() {
 
         const apiKey = process.env.NEXT_PUBLIC_STADIA_MAPS_API_KEY;
         if (apiKey) {
-            try {
-                const response = await fetch(`https://api.stadiamaps.com/geocoding/v1/reverse?point.lat=${latitude}&point.lon=${longitude}&api_key=${apiKey}`);
-                const data = await response.json();
-                if (data.features && data.features.length > 0) {
-                    const address = data.features[0].properties.label;
-                    form.setValue('locationDescription', address, { shouldValidate: true });
-                    toast({
-                      title: 'Address Found',
-                      description: address,
-                    });
-                } else {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Address not found',
-                        description: 'Could not find a specific address for your location.'
-                    });
-                }
-            } catch (error) {
-                 toast({
-                    variant: 'destructive',
-                    title: 'Address lookup failed',
-                    description: 'Could not connect to the location service to find an address.'
-                });
-            }
-        } else {
-            toast({
+          try {
+            const response = await fetch(
+              `https://api.stadiamaps.com/geocoding/v1/reverse?point.lat=${latitude}&point.lon=${longitude}&api_key=${apiKey}`
+            );
+            const data = await response.json();
+            if (data.features && data.features.length > 0) {
+              const address = data.features[0].properties.label;
+              form.setValue('locationDescription', address, {
+                shouldValidate: true,
+              });
+              toast({
+                title: 'Address Found',
+                description: address,
+              });
+            } else {
+              toast({
                 variant: 'destructive',
-                title: 'Missing API Key',
-                description: 'Stadia Maps API key is not configured for reverse geocoding.'
+                title: 'Address not found',
+                description:
+                  'Could not find a specific address for your location.',
+              });
+            }
+          } catch (error) {
+            toast({
+              variant: 'destructive',
+              title: 'Address lookup failed',
+              description:
+                'Could not connect to the location service to find an address.',
             });
+          }
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Missing API Key',
+            description:
+              'Stadia Maps API key is not configured for reverse geocoding.',
+          });
         }
 
         setIsGpsLocating(false);
@@ -227,24 +318,11 @@ export function ReportIncidentForm() {
 
   async function onSubmit(values: FormValues) {
     startTransition(async () => {
-      let photoDataUri =
-        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // 1x1 transparent gif
-      if (values.photo) {
-        try {
-          photoDataUri = await fileToDataURI(values.photo);
-        } catch (error) {
-          toast({
-            variant: 'destructive',
-            title: 'Error processing image',
-            description: 'Could not read the uploaded file.',
-          });
-          return;
-        }
-      }
+      const photoDataUri =
+        capturedImage ||
+        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
       const submissionData = { ...values, photoDataUri };
-      // @ts-ignore
-      delete submissionData.photo;
 
       const result = await submitIncidentForValidation(submissionData);
 
@@ -254,6 +332,7 @@ export function ReportIncidentForm() {
           description: result.message,
         });
         form.reset();
+        setCapturedImage(null);
       } else {
         toast({
           variant: 'destructive',
@@ -443,26 +522,62 @@ export function ReportIncidentForm() {
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="photo"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Photo/Video Evidence</FormLabel>
-                <FormControl>
-                  <Input
-                    type="file"
-                    accept="image/*,video/*"
-                    onChange={e => field.onChange(e.target.files?.[0])}
-                  />
-                </FormControl>
-                <FormDescription>
-                  Optional, but highly recommended for faster verification.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
+          <div className="space-y-2">
+            <FormLabel>Photo Evidence</FormLabel>
+            {hasCameraPermission === false && (
+              <Alert variant="destructive">
+                <AlertTitle>Camera Access Required</AlertTitle>
+                <AlertDescription>
+                  Please enable camera permissions in your browser settings to
+                  capture a photo. You can still submit the report without one.
+                </AlertDescription>
+              </Alert>
             )}
-          />
+
+            {hasCameraPermission && !capturedImage && (
+              <div className="relative">
+                <video
+                  ref={videoRef}
+                  className="w-full aspect-video rounded-md bg-muted"
+                  autoPlay
+                  muted
+                  playsInline
+                />
+                <Button
+                  type="button"
+                  onClick={handleCapture}
+                  className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10"
+                >
+                  <Camera className="mr-2 h-4 w-4" /> Capture
+                </Button>
+              </div>
+            )}
+
+            {capturedImage && (
+              <div>
+                <p className="text-sm font-medium">Image Preview</p>
+                <img
+                  src={capturedImage}
+                  alt="Captured incident"
+                  className="w-full aspect-video rounded-md mt-2 object-cover border"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCapturedImage(null)}
+                  className="mt-2"
+                >
+                  Retake Photo
+                </Button>
+              </div>
+            )}
+            <canvas ref={canvasRef} className="hidden" />
+            <FormDescription>
+              Optional, but a photo with location and timestamp is highly
+              recommended.
+            </FormDescription>
+          </div>
         </div>
 
         <Collapsible>
