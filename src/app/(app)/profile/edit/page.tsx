@@ -140,7 +140,7 @@ export default function EditProfilePage() {
                 <FormItem>
                   <FormLabel>Phone Number</FormLabel>
                   <FormControl>
-                    <Input placeholder="+1234567890" {...field} />
+                    <Input placeholder="+91" {...field} />
                   </FormControl>
                   <FormDescription>
                     Your phone number (optional). Phone number updates require verification, which is not implemented in this prototype.
