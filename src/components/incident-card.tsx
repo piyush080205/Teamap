@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Card,
   CardContent,
@@ -11,8 +13,8 @@ import { Button } from "@/components/ui/button";
 import type { Incident } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
-import { Check, HelpCircle, ShieldAlert, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Check, HelpCircle, X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const severityVariantMap = {
   Critical: "destructive",
@@ -21,9 +23,17 @@ const severityVariantMap = {
 } as const;
 
 export function IncidentCard({ incident }: { incident: Incident }) {
+  const { toast } = useToast();
   const timeAgo = formatDistanceToNow(new Date(incident.timestamp), {
     addSuffix: true,
   });
+
+  const handleVerificationClick = (verificationType: string) => {
+    toast({
+      title: "Feedback Received",
+      description: `You've marked this incident as "${verificationType}". Thank you!`,
+    });
+  };
 
   return (
     <Card className="flex flex-col bg-card hover:bg-muted/50 transition-colors">
@@ -60,13 +70,13 @@ export function IncidentCard({ incident }: { incident: Incident }) {
             IS THIS ACCURATE?
           </p>
           <div className="grid grid-cols-3 gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => handleVerificationClick('Confirmed')}>
               <Check className="mr-1.5 h-4 w-4" /> Confirm
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => handleVerificationClick('Unsure')}>
               <HelpCircle className="mr-1.5 h-4 w-4" /> Unsure
             </Button>
-            <Button variant="outline" size="sm" className="hover:bg-destructive/10 hover:text-destructive">
+            <Button variant="outline" size="sm" className="hover:bg-destructive/10 hover:text-destructive" onClick={() => handleVerificationClick('False')}>
               <X className="mr-1.5 h-4 w-4" /> False
             </Button>
           </div>
