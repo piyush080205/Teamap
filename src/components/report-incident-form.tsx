@@ -124,7 +124,7 @@ export function ReportIncidentForm() {
     }
 
     navigator.geolocation.getCurrentPosition(
-      position => {
+      async (position) => {
         const { latitude, longitude } = position.coords;
         form.setValue('latitude', latitude);
         form.setValue('longitude', longitude);
@@ -134,6 +134,41 @@ export function ReportIncidentForm() {
             6
           )}`,
         });
+
+        const apiKey = process.env.NEXT_PUBLIC_STADIA_MAPS_API_KEY;
+        if (apiKey) {
+            try {
+                const response = await fetch(`https://api.stadiamaps.com/geocoding/v1/reverse?point.lat=${latitude}&point.lon=${longitude}&api_key=${apiKey}`);
+                const data = await response.json();
+                if (data.features && data.features.length > 0) {
+                    const address = data.features[0].properties.label;
+                    form.setValue('locationDescription', address, { shouldValidate: true });
+                    toast({
+                      title: 'Address Found',
+                      description: address,
+                    });
+                } else {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Address not found',
+                        description: 'Could not find a specific address for your location.'
+                    });
+                }
+            } catch (error) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Address lookup failed',
+                    description: 'Could not connect to the location service to find an address.'
+                });
+            }
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Missing API Key',
+                description: 'Stadia Maps API key is not configured for reverse geocoding.'
+            });
+        }
+
         setIsGpsLocating(false);
       },
       error => {
