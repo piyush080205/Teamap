@@ -2,7 +2,7 @@
 
 import Map, { Marker, Popup, type MapRef } from "react-map-gl/maplibre";
 import { useState, useEffect, useRef } from "react";
-import { incidents } from "@/lib/data";
+import { incidents as staticIncidents } from "@/lib/data";
 import type { Incident } from "@/lib/types";
 import { Badge } from "./ui/badge";
 import { formatDistanceToNow } from "date-fns";
@@ -52,10 +52,14 @@ export function MapView() {
   } | null>(null);
   const [hasFlownToLocation, setHasFlownToLocation] = useState(false);
   const mapRef = useRef<MapRef>(null);
+  const [displayedIncidents, setDisplayedIncidents] =
+    useState<Incident[]>(staticIncidents);
 
   useEffect(() => {
     if (!navigator.geolocation) {
       console.error("Geolocation is not supported by your browser.");
+      // Fallback for demo purposes if geolocation is not supported
+      setUserPosition({ latitude: 19.076, longitude: 72.8777 }); // Mumbai
       return;
     }
 
@@ -68,6 +72,10 @@ export function MapView() {
       },
       (error) => {
         console.error("Error getting user location:", error.message);
+        // Fallback for demo purposes if location is denied and not already set
+        if (!userPosition) {
+          setUserPosition({ latitude: 19.076, longitude: 72.8777 }); // Mumbai
+        }
       },
       {
         enableHighAccuracy: true,
@@ -79,15 +87,79 @@ export function MapView() {
     return () => {
       navigator.geolocation.clearWatch(watchId);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (userPosition && mapRef.current && !hasFlownToLocation) {
-      mapRef.current.flyTo({
-        center: [userPosition.longitude, userPosition.latitude],
-        zoom: 14,
-      });
-      setHasFlownToLocation(true);
+    if (userPosition) {
+      const randomOffset = () => (Math.random() - 0.5) * 0.0054; // approx 300m radius
+
+      const nearbyIncidents: Incident[] = [
+        {
+          id: "nearby-1",
+          type: "Medical",
+          location: {
+            lat: userPosition.latitude + randomOffset(),
+            lng: userPosition.longitude + randomOffset(),
+          },
+          address: "Near your current location",
+          timestamp: Date.now() - 1000 * 60 * 2,
+          description: "A person requires immediate medical assistance.",
+          severity: "Critical", // Red
+          status: "Verified",
+          verificationCount: 1,
+          user: {
+            name: "Local Resident",
+            avatarUrl: "https://picsum.photos/seed/301/40/40",
+          },
+        },
+        {
+          id: "nearby-2",
+          type: "Hazard",
+          location: {
+            lat: userPosition.latitude + randomOffset(),
+            lng: userPosition.longitude + randomOffset(),
+          },
+          address: "Near your current location",
+          timestamp: Date.now() - 1000 * 60 * 10,
+          description: "A road hazard has been reported in your vicinity.",
+          severity: "Warning", // Yellow/Orange
+          status: "Verified",
+          verificationCount: 3,
+          user: {
+            name: "Commuter",
+            avatarUrl: "https://picsum.photos/seed/302/40/40",
+          },
+        },
+        {
+          id: "nearby-3",
+          type: "Fire",
+          location: {
+            lat: userPosition.latitude + randomOffset(),
+            lng: userPosition.longitude + randomOffset(),
+          },
+          address: "Near your current location",
+          timestamp: Date.now() - 1000 * 60 * 15,
+          description: "Public gathering causing traffic.",
+          severity: "Info", // Blue
+          status: "Verified",
+          verificationCount: 5,
+          user: {
+            name: "Shopkeeper",
+            avatarUrl: "https://picsum.photos/seed/303/40/40",
+          },
+        },
+      ];
+
+      setDisplayedIncidents(nearbyIncidents);
+
+      if (mapRef.current && !hasFlownToLocation) {
+        mapRef.current.flyTo({
+          center: [userPosition.longitude, userPosition.latitude],
+          zoom: 15,
+        });
+        setHasFlownToLocation(true);
+      }
     }
   }, [userPosition, hasFlownToLocation]);
 
@@ -95,9 +167,12 @@ export function MapView() {
     return (
       <div className="flex h-full w-full items-center justify-center bg-muted/50 rounded-lg">
         <div className="text-center p-4">
-          <h3 className="font-headline text-lg font-semibold">Map Unavailable</h3>
+          <h3 className="font-headline text-lg font-semibold">
+            Map Unavailable
+          </h3>
           <p className="text-muted-foreground text-sm">
-            The Stadia Maps API Key is missing. Please configure it in your environment variables as NEXT_PUBLIC_STADIA_MAPS_API_KEY.
+            The Stadia Maps API Key is missing. Please configure it in your
+            environment variables as NEXT_PUBLIC_STADIA_MAPS_API_KEY.
           </p>
         </div>
       </div>
@@ -117,14 +192,14 @@ export function MapView() {
       mapStyle={`https://tiles.stadiamaps.com/styles/alidade_smooth.json?api_key=${apiKey}`}
       className="w-full h-full rounded-lg"
     >
-      {incidents.map((incident) => (
+      {displayedIncidents.map((incident) => (
         <Marker
           key={incident.id}
           longitude={incident.location.lng}
           latitude={incident.location.lat}
           onClick={(e) => {
             e.originalEvent.stopPropagation();
-            setSelectedIncident(incident)
+            setSelectedIncident(incident);
           }}
           anchor="bottom"
         >
@@ -156,17 +231,33 @@ export function MapView() {
           offset={30}
         >
           <div className="p-2 w-64">
-            <h3 className="font-headline text-md font-bold mb-1">{selectedIncident.type}</h3>
-            <Badge variant={
-                selectedIncident.status === "Verified" ? "default" 
-                : selectedIncident.status === "Verifying" ? "secondary" 
-                : selectedIncident.status === "False" ? "destructive" 
-                : "outline"
-              }>{selectedIncident.status}</Badge>
-            <p className="text-sm text-muted-foreground mt-2">{selectedIncident.description}</p>
-            <p className="text-xs text-muted-foreground mt-2">{selectedIncident.address}</p>
+            <h3 className="font-headline text-md font-bold mb-1">
+              {selectedIncident.type}
+            </h3>
+            <Badge
+              variant={
+                selectedIncident.status === "Verified"
+                  ? "default"
+                  : selectedIncident.status === "Verifying"
+                  ? "secondary"
+                  : selectedIncident.status === "False"
+                  ? "destructive"
+                  : "outline"
+              }
+            >
+              {selectedIncident.status}
+            </Badge>
+            <p className="text-sm text-muted-foreground mt-2">
+              {selectedIncident.description}
+            </p>
             <p className="text-xs text-muted-foreground mt-2">
-              Reported {formatDistanceToNow(new Date(selectedIncident.timestamp), { addSuffix: true })}
+              {selectedIncident.address}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Reported{" "}
+              {formatDistanceToNow(new Date(selectedIncident.timestamp), {
+                addSuffix: true,
+              })}
             </p>
           </div>
         </Popup>
