@@ -28,16 +28,16 @@ export function UserNav() {
               alt="User avatar"
               data-ai-hint={userAvatar?.imageHint}
             />
-            <AvatarFallback>U</AvatarFallback>
+            <AvatarFallback>A</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">Valued Citizen</p>
+            <p className="text-sm font-medium leading-none">Aisha Khan</p>
             <p className="text-xs leading-none text-muted-foreground">
-              user@teammaps.com
+              aisha@teammaps.com
             </p>
           </div>
         </DropdownMenuLabel>
