@@ -9,6 +9,7 @@ import {
 import { useUser } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function ProfilePage() {
   const { user } = useUser();
@@ -56,7 +57,9 @@ export default function ProfilePage() {
             {user?.uid}
           </p>
         </div>
-        <Button>Edit Profile</Button>
+        <Button asChild>
+          <Link href="/profile/edit">Edit Profile</Link>
+        </Button>
       </CardContent>
     </Card>
   );
