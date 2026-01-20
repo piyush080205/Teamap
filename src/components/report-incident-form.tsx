@@ -11,6 +11,7 @@ import {
   Camera,
   SwitchCamera,
   X,
+  Video,
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -97,6 +98,11 @@ export function ReportIncidentForm() {
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [currentDeviceIndex, setCurrentDeviceIndex] = useState(0);
 
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const [capturedVideos, setCapturedVideos] = useState<string[]>([]);
+  const [cameraMode, setCameraMode] = useState<'photo' | 'video' | null>(null);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -109,13 +115,13 @@ export function ReportIncidentForm() {
   };
 
   useEffect(() => {
-    // Cleanup function to stop camera when component unmounts
     return () => {
       stopCameraStream();
     };
   }, []);
 
-  const openCamera = async (deviceId?: string) => {
+  const openCamera = async (mode: 'photo' | 'video', deviceId?: string) => {
+    setCameraMode(mode);
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       console.error('Camera API not supported by this browser.');
       setHasCameraPermission(false);
@@ -127,7 +133,6 @@ export function ReportIncidentForm() {
       return;
     }
     try {
-      // Prefer back camera by default
       const constraints = deviceId
         ? { video: { deviceId: { exact: deviceId } } }
         : { video: { facingMode: 'environment' } };
@@ -139,7 +144,6 @@ export function ReportIncidentForm() {
       setHasCameraPermission(true);
       setIsCameraOpen(true);
 
-      // Populate device list if not already done
       if (videoDevices.length === 0) {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const cameras = devices.filter(d => d.kind === 'videoinput');
@@ -159,13 +163,13 @@ export function ReportIncidentForm() {
   };
 
   const handleSwitchCamera = () => {
-    if (videoDevices.length > 1) {
+    if (videoDevices.length > 1 && cameraMode) {
       const nextIndex = (currentDeviceIndex + 1) % videoDevices.length;
       setCurrentDeviceIndex(nextIndex);
       const nextDevice = videoDevices[nextIndex];
 
       stopCameraStream();
-      openCamera(nextDevice.deviceId);
+      openCamera(cameraMode, nextDevice.deviceId);
     }
   };
 
@@ -219,10 +223,63 @@ export function ReportIncidentForm() {
   const closeCamera = () => {
     stopCameraStream();
     setIsCameraOpen(false);
+    setCameraMode(null);
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
   }
+
+  const handleStartRecording = () => {
+    if (videoRef.current?.srcObject) {
+      setIsRecording(true);
+      const stream = videoRef.current.srcObject as MediaStream;
+      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      mediaRecorderRef.current = recorder;
+      const chunks: BlobPart[] = [];
+
+      recorder.ondataavailable = event => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        if (blob.size > 5 * 1024 * 1024) { // 5MB limit
+          toast({
+            variant: 'destructive',
+            title: 'File size limit exceeded',
+            description: 'Video recording must be less than 5MB.',
+          });
+        } else {
+          const reader = new FileReader();
+          reader.readAsDataURL(blob);
+          reader.onloadend = () => {
+            setCapturedVideos(prev => [...prev, reader.result as string]);
+            toast({ title: 'Video Captured' });
+          };
+        }
+        closeCamera();
+      };
+
+      recorder.start();
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
 
   const removeImage = (index: number) => {
     setCapturedImages(prev => prev.filter((_, i) => i !== index));
+  };
+  
+  const removeVideo = (index: number) => {
+    setCapturedVideos(prev => prev.filter((_, i) => i !== index));
   };
 
   const form = useForm<FormValues>({
@@ -364,7 +421,7 @@ export function ReportIncidentForm() {
 
   async function onSubmit(values: FormValues) {
     startTransition(async () => {
-      const submissionData = { ...values, photoDataUris: capturedImages };
+      const submissionData = { ...values, photoDataUris: [...capturedImages, ...capturedVideos] };
 
       const result = await submitIncidentForValidation(submissionData as any);
 
@@ -375,6 +432,7 @@ export function ReportIncidentForm() {
         });
         form.reset();
         setCapturedImages([]);
+        setCapturedVideos([]);
       } else {
         toast({
           variant: 'destructive',
@@ -566,9 +624,9 @@ export function ReportIncidentForm() {
 
           <div className="space-y-4">
             <div>
-              <FormLabel>Photo Evidence</FormLabel>
+              <FormLabel>Photo/Video Evidence</FormLabel>
               <FormDescription>
-                A photo with location and timestamp is highly recommended. You can add up to 5 photos.
+                A photo or short video with location and timestamp is highly recommended. You can add up to 5 items.
               </FormDescription>
             </div>
             
@@ -591,10 +649,17 @@ export function ReportIncidentForm() {
                       playsInline
                     />
                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
-                        <Button type="button" size="icon" onClick={handleCapture}>
-                          <Camera className="h-5 w-5" />
-                          <span className="sr-only">Capture</span>
-                        </Button>
+                        {cameraMode === 'photo' && (
+                          <Button type="button" size="icon" onClick={handleCapture}>
+                            <Camera className="h-5 w-5" />
+                            <span className="sr-only">Capture Photo</span>
+                          </Button>
+                        )}
+                        {cameraMode === 'video' && (
+                           <Button type="button" variant={isRecording ? 'destructive' : 'default'} onClick={isRecording ? handleStopRecording : handleStartRecording}>
+                             {isRecording ? 'Stop' : 'Record'}
+                           </Button>
+                        )}
                         {videoDevices.length > 1 && (
                           <Button type="button" size="icon" onClick={handleSwitchCamera}>
                             <SwitchCamera className="h-5 w-5" />
@@ -610,7 +675,7 @@ export function ReportIncidentForm() {
               <div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-2">
                   {capturedImages.map((image, index) => (
-                    <div key={index} className="relative group">
+                    <div key={`img-${index}`} className="relative group">
                       <img
                         src={image}
                         alt={`Captured incident ${index + 1}`}
@@ -627,17 +692,46 @@ export function ReportIncidentForm() {
                       </Button>
                     </div>
                   ))}
+                   {capturedVideos.map((video, index) => (
+                    <div key={`vid-${index}`} className="relative group">
+                      <video
+                        src={video}
+                        className="w-full aspect-square rounded-md object-cover border"
+                        controls
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => removeVideo(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-                {capturedImages.length < 5 && (
-                   <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => openCamera()}
-                    disabled={isCameraOpen}
-                  >
-                    <Camera className="mr-2 h-4 w-4" />
-                    {capturedImages.length > 0 ? 'Add Another Photo' : 'Capture Photo'}
-                  </Button>
+                {(capturedImages.length + capturedVideos.length) < 5 && (
+                   <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => openCamera('photo')}
+                        disabled={isCameraOpen}
+                      >
+                        <Camera className="mr-2 h-4 w-4" />
+                        {capturedImages.length > 0 ? 'Add Photo' : 'Capture Photo'}
+                      </Button>
+                       <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => openCamera('video')}
+                        disabled={isCameraOpen}
+                      >
+                        <Video className="mr-2 h-4 w-4" />
+                        {capturedVideos.length > 0 ? 'Add Video' : 'Record Video'}
+                      </Button>
+                   </div>
                 )}
               </div>
             )}
