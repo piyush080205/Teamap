@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Avatar,
   AvatarFallback,
@@ -13,31 +15,53 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { useAuth, useUser } from "@/firebase";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export function UserNav() {
-  const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar-1");
+  const { user } = useUser();
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await auth.signOut();
+    router.push("/login");
+  };
+
+  const getInitials = (name?: string | null) => {
+    if (!name) return "A";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase();
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9 border">
-            <AvatarImage
-              src={userAvatar?.imageUrl}
-              alt="User avatar"
-              data-ai-hint={userAvatar?.imageHint}
-            />
-            <AvatarFallback>A</AvatarFallback>
+            {user?.photoURL && (
+              <AvatarImage
+                src={user.photoURL}
+                alt={user.displayName || "User avatar"}
+              />
+            )}
+            <AvatarFallback>{getInitials(user?.displayName)}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">Aisha Khan</p>
+            <p className="text-sm font-medium leading-none">
+              {user?.displayName || "Anonymous User"}
+            </p>
             <p className="text-xs leading-none text-muted-foreground">
-              aisha@teammaps.com
+              {user?.email || "No email"}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -49,7 +73,7 @@ export function UserNav() {
           <DropdownMenuItem>Settings</DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>Log out</DropdownMenuItem>
+        <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
