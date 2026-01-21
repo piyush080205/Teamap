@@ -1,7 +1,7 @@
 'use server';
 
 import {
-  validateIncidentWithAI,
+  // We only need the types now, not the function itself.
   type ValidateIncidentWithAIOutput,
   type ValidateIncidentWithAIInput,
 } from '@/ai/flows/validate-incident-with-ai';
@@ -44,21 +44,16 @@ export async function submitIncidentForValidation(
     return { success: false, message: 'Invalid form data provided.' };
   }
 
-  try {
-    console.log('Sending data to AI for validation...');
-    const result = await validateIncidentWithAI(parsed.data);
-    console.log('AI Validation Result:', result);
-    // In a real app, you would save the incident and AI result to a database here.
-    return {
-      success: true,
-      message: 'Incident is being validated by AI.',
-      data: result,
-    };
-  } catch (error) {
-    console.error('AI validation failed:', error);
-    return { 
-      success: false, 
-      message: (error instanceof Error && error.message) || 'Could not validate the incident.' 
-    };
-  }
+  // Bypassing real AI validation and returning mock data.
+  const mockData: ValidateIncidentWithAIOutput = {
+    isAuthentic: true, // To ensure status becomes "Verifying"
+    authenticityConfidence: Math.random() * (0.95 - 0.7) + 0.7, // Random score between 0.7 and 0.95
+    summary: 'Mock AI analysis. Validation is currently bypassed.',
+  };
+
+  return {
+    success: true,
+    message: 'Incident submitted with mock validation data.',
+    data: mockData,
+  };
 }
