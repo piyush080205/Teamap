@@ -198,18 +198,36 @@ export function ReportIncidentForm() {
     const canvas = canvasRef.current;
     const video = videoRef.current;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    const MAX_WIDTH = 1024;
+    const MAX_HEIGHT = 768;
+    let { videoWidth: width, videoHeight: height } = video;
+
+    if (width > height) {
+        if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+        }
+    } else {
+        if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+        }
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+
 
     const context = canvas.getContext('2d');
     if (!context) return;
 
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    context.drawImage(video, 0, 0, width, height);
 
     const drawText = (lat?: number, lon?: number) => {
       const timestamp = new Date().toLocaleString();
       context.fillStyle = 'white';
-      context.font = '20px Arial';
+      const fontSize = Math.max(12, Math.round(width / 60));
+      context.font = `${fontSize}px Arial`;
       context.shadowColor = 'black';
       context.shadowBlur = 5;
       context.textAlign = 'left';
@@ -218,10 +236,10 @@ export function ReportIncidentForm() {
         lat && lon
           ? `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}`
           : 'Location not available';
-      context.fillText(latLonText, 15, canvas.height - 40);
-      context.fillText(timestamp, 15, canvas.height - 15);
+      context.fillText(latLonText, 15, height - (fontSize * 1.5 + 10));
+      context.fillText(timestamp, 15, height - 15);
 
-      const dataUrl = canvas.toDataURL('image/jpeg');
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
       setCapturedImages(prev => [...prev, dataUrl]);
       toast({ title: 'Photo Captured' });
       
@@ -265,11 +283,13 @@ export function ReportIncidentForm() {
 
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: 'video/webm' });
-        if (blob.size > 5 * 1024 * 1024) { // 5MB limit
+        
+        const MAX_BLOB_SIZE = 750 * 1024; // 750KB to keep base64 under ~1MB
+        if (blob.size > MAX_BLOB_SIZE) {
           toast({
             variant: 'destructive',
             title: 'File size limit exceeded',
-            description: 'Video recording must be less than 5MB.',
+            description: `Video recording is too large. Please keep recordings brief.`,
           });
           closeCamera();
         } else {
@@ -293,6 +313,12 @@ export function ReportIncidentForm() {
       };
 
       recorder.start();
+
+      setTimeout(() => {
+          if (mediaRecorderRef.current?.state === 'recording') {
+              mediaRecorderRef.current.stop();
+          }
+      }, 10000); // 10 second recording limit
     }
   };
 
@@ -508,13 +534,24 @@ export function ReportIncidentForm() {
           description: 'Your incident has been submitted for verification.',
         });
         router.push(`/incidents/${docRef.id}`);
-      } catch (error) {
-        const permissionError = new FirestorePermissionError({
-          path: incidentsCollectionRef.path,
-          operation: 'create',
-          requestResourceData: newIncident,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+      } catch (error: any) {
+        console.error("Incident submission failed:", error);
+        if (error.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+              path: incidentsCollectionRef.path,
+              operation: 'create',
+              requestResourceData: newIncident,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Submission Failed",
+                description: error.message?.includes('exceeds the maximum size') 
+                    ? "The incident report is too large, likely due to large images or videos. Please try with smaller files."
+                    : error.message || "Could not save the incident report."
+            });
+        }
       }
     });
   }
@@ -702,7 +739,7 @@ export function ReportIncidentForm() {
             <div>
               <FormLabel>Photo/Video Evidence</FormLabel>
               <FormDescription>
-                A photo or short video with location and timestamp is highly recommended. You can add up to 5 items.
+                A photo or short video (max 10s) with location and timestamp is highly recommended. You can add up to 5 items.
               </FormDescription>
             </div>
             
