@@ -59,11 +59,6 @@ const prompt = ai.definePrompt({
   Number of People Affected: {{{numberOfPeopleAffected}}}
 
   Based on the provided information, determine if the incident report is authentic. Consider the consistency of the details, the plausibility of the scenario, and any potential discrepancies.
-
-  Provide your output in JSON format with the following keys:
-  - isAuthentic (boolean): true if the incident is likely authentic, false otherwise.
-  - authenticityConfidence (number): A confidence score between 0 and 1 indicating the certainty of your assessment.
-  - summary (string): A brief summary of your analysis, highlighting key factors influencing your decision.
 `,
 });
 

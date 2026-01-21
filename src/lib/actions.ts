@@ -56,6 +56,9 @@ export async function submitIncidentForValidation(
     };
   } catch (error) {
     console.error('AI validation failed:', error);
-    return { success: false, message: 'Could not validate the incident.' };
+    return { 
+      success: false, 
+      message: (error instanceof Error && error.message) || 'Could not validate the incident.' 
+    };
   }
 }
