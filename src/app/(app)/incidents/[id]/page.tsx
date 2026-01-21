@@ -174,9 +174,6 @@ export default function IncidentDetailPage() {
                             </div>
                             <Progress value={confidencePercent} className="h-3" />
                         </div>
-                        {incident.aiSummary && (
-                             <p className="text-sm text-foreground/80 pt-2 border-t">{incident.aiSummary}</p>
-                        )}
                     </CardContent>
                 </Card>
             </div>
