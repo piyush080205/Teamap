@@ -482,41 +482,40 @@ export function ReportIncidentForm() {
         },
         incidentType: values.incidentType,
         locationDescription: values.locationDescription,
+        address: values.locationDescription,
         description: values.description,
         severity: values.severityLevel,
         helpNeeded: values.helpNeeded,
         numberOfPeopleAffected: values.numberOfPeopleAffected,
         latitude: values.latitude || null,
         longitude: values.longitude || null,
-        photoURL: submissionData.photoDataUris.length > 0 ? submissionData.photoDataUris[0] : null,
+        imageUrls: submissionData.photoDataUris,
         status: isAuthentic ? 'Verifying' : 'Unverified',
         aiSummary: summary,
         authenticityConfidence: authenticityConfidence,
         isAuthentic: isAuthentic,
         timestamp: serverTimestamp(),
+        verificationCount: 0,
+        type: values.incidentType,
       };
   
       const incidentsCollectionRef = collection(firestore, 'incidents');
       
-      addDoc(incidentsCollectionRef, newIncident)
-        .catch((error) => {
-          const permissionError = new FirestorePermissionError({
-            path: incidentsCollectionRef.path,
-            operation: 'create',
-            requestResourceData: newIncident,
-          });
-          errorEmitter.emit('permission-error', permissionError);
+      try {
+        const docRef = await addDoc(incidentsCollectionRef, newIncident);
+        toast({
+          title: 'Report Submitted',
+          description: 'Your incident has been submitted for verification.',
         });
-  
-      toast({
-        title: 'Report Submitted',
-        description: 'Your incident has been submitted for verification.',
-      });
-  
-      form.reset();
-      setCapturedImages([]);
-      setCapturedVideos([]);
-      router.push('/alerts');
+        router.push(`/incidents/${docRef.id}`);
+      } catch (error) {
+        const permissionError = new FirestorePermissionError({
+          path: incidentsCollectionRef.path,
+          operation: 'create',
+          requestResourceData: newIncident,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      }
     });
   }
 

@@ -118,7 +118,7 @@ export function MapView() {
             name: "Local Resident",
             avatarUrl: "https://picsum.photos/seed/301/40/40",
           },
-          imageUrl: medicalImage,
+          imageUrls: medicalImage ? [medicalImage] : [],
         },
         {
           id: "nearby-2",
@@ -137,7 +137,7 @@ export function MapView() {
             name: "Commuter",
             avatarUrl: "https://picsum.photos/seed/302/40/40",
           },
-          imageUrl: hazardImage,
+          imageUrls: hazardImage ? [hazardImage] : [],
         },
         {
           id: "nearby-3",
@@ -156,7 +156,7 @@ export function MapView() {
             name: "Shopkeeper",
             avatarUrl: "https://picsum.photos/seed/303/40/40",
           },
-          imageUrl: fireImage,
+          imageUrls: fireImage ? [fireImage] : [],
         },
       ];
 
@@ -240,9 +240,9 @@ export function MapView() {
           offset={30}
         >
           <div className="p-2 w-64">
-            {selectedIncident.imageUrl && (
+            {selectedIncident.imageUrls && selectedIncident.imageUrls.length > 0 && (
                 <Image
-                    src={selectedIncident.imageUrl}
+                    src={selectedIncident.imageUrls[0]}
                     alt={selectedIncident.type}
                     width={240}
                     height={120}

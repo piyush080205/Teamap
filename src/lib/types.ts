@@ -19,7 +19,10 @@ export type Incident = {
     name: string;
     avatarUrl: string;
   };
-  imageUrl?: string;
+  imageUrls?: string[];
+  aiSummary?: string;
+  authenticityConfidence?: number;
+  isAuthentic?: boolean;
 };
 
 export type NavItem = {

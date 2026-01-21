@@ -29,7 +29,7 @@ export const incidents: Incident[] = [
     status: 'Verified',
     verificationCount: 5,
     user: { name: 'Rohan Joshi', avatarUrl: userAvatar1 },
-    imageUrl: incidentPhoto1,
+    imageUrls: incidentPhoto1 ? [incidentPhoto1] : [],
   },
   {
     id: '2',
@@ -42,7 +42,7 @@ export const incidents: Incident[] = [
     status: 'Verifying',
     verificationCount: 2,
     user: { name: 'Priya Kulkarni', avatarUrl: userAvatar2 },
-    imageUrl: incidentFire1,
+    imageUrls: incidentFire1 ? [incidentFire1] : [],
   },
   {
     id: '3',
@@ -55,7 +55,7 @@ export const incidents: Incident[] = [
     status: 'Verified',
     verificationCount: 3,
     user: { name: 'Sameer Patil', avatarUrl: userAvatar3 },
-    imageUrl: incidentHazard1,
+    imageUrls: incidentHazard1 ? [incidentHazard1] : [],
   },
     {
     id: '4',
@@ -68,7 +68,7 @@ export const incidents: Incident[] = [
     status: 'Unverified',
     verificationCount: 0,
     user: { name: 'Anonymous', avatarUrl: userAvatar4 },
-    imageUrl: incidentCrime1,
+    imageUrls: incidentCrime1 ? [incidentCrime1] : [],
   },
   {
     id: '5',
@@ -81,7 +81,7 @@ export const incidents: Incident[] = [
     status: 'Verifying',
     verificationCount: 1,
     user: { name: 'Anita Rao', avatarUrl: userAvatar5 },
-    imageUrl: incidentMedical1,
+    imageUrls: incidentMedical1 ? [incidentMedical1] : [],
   },
   {
     id: '6',
@@ -94,7 +94,7 @@ export const incidents: Incident[] = [
     status: 'Verified',
     verificationCount: 7,
     user: { name: 'Vikram Deshmukh', avatarUrl: userAvatar6 },
-    imageUrl: incidentWeather1,
+    imageUrls: incidentWeather1 ? [incidentWeather1] : [],
   },
   {
     id: '7',
@@ -107,6 +107,6 @@ export const incidents: Incident[] = [
     status: 'False',
     verificationCount: 4,
     user: { name: 'Sanjay Pawar', avatarUrl: userAvatar1 },
-    imageUrl: incidentOther1,
+    imageUrls: incidentOther1 ? [incidentOther1] : [],
   }
 ];
