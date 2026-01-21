@@ -115,6 +115,8 @@ export function ReportIncidentForm() {
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isImageViewerOpen, setImageViewerOpen] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+  const [isVideoViewerOpen, setVideoViewerOpen] = useState(false);
 
 
   const { user } = useUser();
@@ -764,11 +766,19 @@ export function ReportIncidentForm() {
                   ))}
                    {capturedVideos.map((video, index) => (
                     <div key={`vid-${index}`} className="relative group">
-                      <video
-                        src={video}
-                        className="w-full aspect-square rounded-md object-cover border"
-                        controls
-                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedVideo(video);
+                          setVideoViewerOpen(true);
+                        }}
+                        className="w-full aspect-square rounded-md overflow-hidden border p-0 block"
+                      >
+                        <video
+                          src={video}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
                       <Button
                         type="button"
                         variant="destructive"
@@ -938,6 +948,13 @@ export function ReportIncidentForm() {
       <Dialog open={isImageViewerOpen} onOpenChange={setImageViewerOpen}>
         <DialogContent className="max-w-3xl p-2">
           <img src={selectedImage ?? ''} alt="Captured incident" className="w-full h-auto rounded-md" />
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isVideoViewerOpen} onOpenChange={setVideoViewerOpen}>
+        <DialogContent className="max-w-3xl p-2">
+          {selectedVideo && (
+            <video src={selectedVideo} className="w-full h-auto rounded-md" controls autoPlay loop />
+          )}
         </DialogContent>
       </Dialog>
     </Form>
