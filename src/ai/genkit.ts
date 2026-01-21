@@ -12,7 +12,7 @@ import {googleAI} from '@genkit-ai/google-genai';
  * The main Genkit AI instance, configured with the Google AI plugin.
  *
  * This instance is used to define flows, prompts, and tools. It's configured
- * to use the 'gemini-1.5-flash' model by default for all generation tasks.
+ * to use the 'gemini-pro-vision' model by default for all generation tasks.
  */
 export const ai = genkit({
   plugins: [
@@ -22,7 +22,7 @@ export const ai = genkit({
     }),
   ],
   // The default model to use for all `ai.generate()` calls.
-  model: 'googleai/gemini-1.5-flash',
+  model: 'googleai/gemini-pro-vision',
   // Log level can be configured for debugging purposes.
   // Options: 'debug', 'info', 'warn', 'error'
   logLevel: 'warn',
