@@ -17,8 +17,7 @@ import {googleAI} from '@genkit-ai/google-genai';
 export const ai = genkit({
   plugins: [
     googleAI({
-      // The Google AI provider is initialized here.
-      // API keys are typically handled by environment variables.
+      apiVersion: 'v1',
     }),
   ],
   // The default model to use for all `ai.generate()` calls.
