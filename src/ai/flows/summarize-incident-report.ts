@@ -29,6 +29,7 @@ export async function summarizeIncidentReport(input: SummarizeIncidentReportInpu
 
 const prompt = ai.definePrompt({
   name: 'summarizeIncidentReportPrompt',
+  model: 'googleai/gemini-1.5-flash-latest',
   input: {schema: SummarizeIncidentReportInputSchema},
   output: {schema: SummarizeIncidentReportOutputSchema},
   prompt: `Summarize the following incident report in a concise manner for quick understanding, even with limited network connectivity.  Focus on the most critical information.

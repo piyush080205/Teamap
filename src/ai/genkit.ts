@@ -18,6 +18,4 @@ export const ai = genkit({
   plugins: [
     googleAI(),
   ],
-  // The default model to use for all `ai.generate()` calls.
-  model: 'googleai/gemini-pro-vision',
 });

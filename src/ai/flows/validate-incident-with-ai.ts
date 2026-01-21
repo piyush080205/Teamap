@@ -39,6 +39,7 @@ export async function validateIncidentWithAI(input: ValidateIncidentWithAIInput)
 
 const prompt = ai.definePrompt({
   name: 'validateIncidentWithAIPrompt',
+  model: 'googleai/gemini-pro-vision',
   input: {schema: ValidateIncidentWithAIInputSchema},
   output: {schema: ValidateIncidentWithAIOutputSchema},
   prompt: `You are an AI assistant tasked with validating incident reports based on provided information.
