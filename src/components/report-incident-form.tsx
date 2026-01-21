@@ -14,6 +14,10 @@ import {
   Video,
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+} from '@/components/ui/dialog';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -109,6 +113,10 @@ export function ReportIncidentForm() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isImageViewerOpen, setImageViewerOpen] = useState(false);
+
+
   const { user } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
@@ -143,7 +151,7 @@ export function ReportIncidentForm() {
     try {
       const constraints = deviceId
         ? { video: { deviceId: { exact: deviceId } } }
-        : { video: { facingMode: { ideal: 'environment' } } };
+        : { video: { facingMode: 'environment' } };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       if (videoRef.current) {
@@ -729,16 +737,25 @@ export function ReportIncidentForm() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-2">
                   {capturedImages.map((image, index) => (
                     <div key={`img-${index}`} className="relative group">
-                      <img
-                        src={image}
-                        alt={`Captured incident ${index + 1}`}
-                        className="w-full aspect-square rounded-md object-cover border"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedImage(image);
+                          setImageViewerOpen(true);
+                        }}
+                        className="w-full aspect-square rounded-md overflow-hidden border p-0 block"
+                      >
+                        <img
+                          src={image}
+                          alt={`Captured incident ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
                       <Button
                         type="button"
                         variant="destructive"
                         size="icon"
-                        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10"
                         onClick={() => removeImage(index)}
                       >
                         <X className="h-4 w-4" />
@@ -756,7 +773,7 @@ export function ReportIncidentForm() {
                         type="button"
                         variant="destructive"
                         size="icon"
-                        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10"
                         onClick={() => removeVideo(index)}
                       >
                         <X className="h-4 w-4" />
@@ -918,6 +935,11 @@ export function ReportIncidentForm() {
           Submit Report
         </Button>
       </form>
+      <Dialog open={isImageViewerOpen} onOpenChange={setImageViewerOpen}>
+        <DialogContent className="max-w-3xl p-2">
+          <img src={selectedImage ?? ''} alt="Captured incident" className="w-full h-auto rounded-md" />
+        </DialogContent>
+      </Dialog>
     </Form>
   );
 }
