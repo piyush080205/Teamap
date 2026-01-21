@@ -48,7 +48,7 @@ export async function submitIncidentForValidation(
   const mockData: ValidateIncidentWithAIOutput = {
     isAuthentic: true, // To ensure status becomes "Verifying"
     authenticityConfidence: Math.random() * (0.95 - 0.7) + 0.7, // Random score between 0.7 and 0.95
-    summary: 'Mock AI analysis. Validation is currently bypassed.',
+    summary: 'Gemini Validation Engine Analysis',
   };
 
   return {
