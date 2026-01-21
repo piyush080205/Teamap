@@ -160,18 +160,14 @@
         }
       },
       {
-        "path": "/users/{userId}/incidents/{incidentId}",
+        "path": "/incidents/{incidentId}",
         "definition": {
           "entityName": "Incident",
           "schema": {
             "$ref": "#/backend/entities/Incident"
           },
-          "description": "Stores incidents reported by users. Path-based ownership, inheriting from the user document.",
+          "description": "Stores all incidents reported by users. Publicly readable.",
           "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user who reported the incident."
-            },
             {
               "name": "incidentId",
               "description": "The unique identifier of the incident."
@@ -180,18 +176,14 @@
         }
       },
       {
-        "path": "/users/{userId}/incidents/{incidentId}/verifications/{verificationId}",
+        "path": "/incidents/{incidentId}/verifications/{verificationId}",
         "definition": {
           "entityName": "Verification",
           "schema": {
             "$ref": "#/backend/entities/Verification"
           },
-          "description": "Stores user verifications for incidents. Path-based ownership, inheriting from the incident document.",
+          "description": "Stores user verifications for incidents. Users can only add verifications.",
           "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user who reported the incident."
-            },
             {
               "name": "incidentId",
               "description": "The unique identifier of the incident."
@@ -204,6 +196,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure prioritizes authorization independence and QAPs. User data is stored under `/users/{userId}`, enabling path-based ownership. Incidents are also stored under the respective user's ID, enabling the User 1:N Incident relationship. Verification records are stored under the respective incident, also following a 1:N relationship. This ensures clear ownership and avoids the need for complex `get()` calls in security rules. All documents within the 'incidents' and 'verifications' subcollections inherit authorization context from their parent user and incident documents respectively, using path-based rules. This design facilitates secure list operations (QAPs) because listing incidents is scoped to the user who created them. Specifically, authorization independence is achieved by not relying on data outside the document to authorize operations. For example, verifying an Incident requires only checking the user performing the verification, the Incident being verified, and no other parent or ancestor attributes."
+    "reasoning": "The Firestore structure is updated to support public incident reporting. The `/incidents` collection is publicly readable to allow all users to see nearby alerts. User data remains private under `/users/{userId}`. Incident creation is allowed for any authenticated user. Verifications are stored under each incident, allowing users to contribute."
   }
 }

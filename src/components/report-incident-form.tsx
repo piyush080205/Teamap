@@ -271,15 +271,25 @@ export function ReportIncidentForm() {
             title: 'File size limit exceeded',
             description: 'Video recording must be less than 5MB.',
           });
+          closeCamera();
         } else {
           const reader = new FileReader();
           reader.readAsDataURL(blob);
           reader.onloadend = () => {
             setCapturedVideos(prev => [...prev, reader.result as string]);
             toast({ title: 'Video Captured' });
+            closeCamera();
+          };
+          reader.onerror = () => {
+            console.error("Failed to read video blob");
+            toast({
+                variant: 'destructive',
+                title: 'Recording Failed',
+                description: 'Could not process the captured video.',
+            });
+            closeCamera();
           };
         }
-        closeCamera();
       };
 
       recorder.start();
@@ -466,6 +476,10 @@ export function ReportIncidentForm() {
       
       const newIncident = {
         userId: user.uid,
+        user: {
+            name: user.displayName || 'Anonymous User',
+            avatarUrl: user.photoURL || `https://picsum.photos/seed/${user.uid}/40/40`,
+        },
         incidentType: values.incidentType,
         locationDescription: values.locationDescription,
         description: values.description,
@@ -482,7 +496,7 @@ export function ReportIncidentForm() {
         timestamp: serverTimestamp(),
       };
   
-      const incidentsCollectionRef = collection(firestore, 'users', user.uid, 'incidents');
+      const incidentsCollectionRef = collection(firestore, 'incidents');
       
       addDoc(incidentsCollectionRef, newIncident)
         .catch((error) => {

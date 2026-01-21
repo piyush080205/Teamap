@@ -1,6 +1,5 @@
 'use client';
 
-import { incidents as initialIncidents } from "@/lib/data";
 import { IncidentCard } from "@/components/incident-card";
 import {
   Select,
@@ -9,18 +8,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ListFilter } from "lucide-react";
+import { ListFilter, Loader2 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import type { Incident } from "@/lib/types";
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, Timestamp } from 'firebase/firestore';
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
-// Combine the duplicated incidents into a single list
-const incidentsData = [
-  ...initialIncidents,
-  ...initialIncidents.map((incident) => ({
-    ...incident,
-    id: `${incident.id}-duplicate`,
-  })),
-];
+type FirestoreIncident = Omit<Incident, 'timestamp' | 'location' | 'id'> & { 
+  id: string;
+  timestamp: Timestamp;
+  latitude: number;
+  longitude: number;
+};
 
 const severityOrder: Record<Incident['severity'], number> = {
   Critical: 3,
@@ -57,11 +57,36 @@ function getDistance(
 
 export default function AlertsPage() {
   const [sortBy, setSortBy] = useState("distance");
-  const [incidents, setIncidents] = useState<Incident[]>(incidentsData);
   const [userPosition, setUserPosition] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
+
+  const firestore = useFirestore();
+  const incidentsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'incidents');
+  }, [firestore]);
+
+  const { data: rawIncidents, isLoading, error } = useCollection<FirestoreIncident>(incidentsQuery);
+
+  const transformedIncidents = useMemo(() => {
+    if (!rawIncidents) return null;
+    return rawIncidents.map(inc => ({
+      ...inc,
+      timestamp: inc.timestamp?.toMillis() || Date.now(),
+      location: {
+        lat: inc.latitude,
+        lng: inc.longitude,
+      },
+    } as Incident));
+  }, [rawIncidents]);
+
+  const [displayIncidents, setDisplayIncidents] = useState<Incident[] | null>(null);
+
+  useEffect(() => {
+    setDisplayIncidents(transformedIncidents);
+  }, [transformedIncidents]);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -74,22 +99,22 @@ export default function AlertsPage() {
         },
         (error) => {
           console.error("Error getting user location for sorting:", error);
-          // Fallback to a default location if permission is denied
           setUserPosition({ latitude: 19.0760, longitude: 72.8777 }); // Mumbai
         }
       );
     } else {
-        // Fallback for browsers that don't support geolocation
         setUserPosition({ latitude: 19.0760, longitude: 72.8777 }); // Mumbai
     }
   }, []);
 
   const handleRemoveIncident = (id: string) => {
-    setIncidents(prevIncidents => prevIncidents.filter(incident => incident.id !== id));
+    setDisplayIncidents(prevIncidents => prevIncidents?.filter(incident => incident.id !== id) ?? null);
   };
 
   const sortedIncidents = useMemo(() => {
-    const newSortedIncidents = [...incidents];
+    if (!displayIncidents) return [];
+
+    const newSortedIncidents = [...displayIncidents];
 
     switch (sortBy) {
       case "time":
@@ -123,7 +148,7 @@ export default function AlertsPage() {
         break;
     }
     return newSortedIncidents;
-  }, [incidents, sortBy, userPosition]);
+  }, [displayIncidents, sortBy, userPosition]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -144,6 +169,29 @@ export default function AlertsPage() {
           </Select>
         </div>
       </div>
+
+      {isLoading && (
+         <div className="flex h-48 items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+            <AlertTitle>Error loading incidents</AlertTitle>
+            <AlertDescription>
+                There was a problem fetching nearby alerts. Please try again later.
+            </AlertDescription>
+        </Alert>
+      )}
+
+      {!isLoading && !error && sortedIncidents.length === 0 && (
+          <div className="text-center py-10 border-2 border-dashed rounded-lg">
+              <h3 className="text-xl font-semibold">No alerts nearby</h3>
+              <p className="text-muted-foreground">It's all quiet... for now. You can be the first to report an incident.</p>
+          </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {sortedIncidents.map((incident) => (
           <IncidentCard key={incident.id} incident={incident} onRemove={handleRemoveIncident} />
